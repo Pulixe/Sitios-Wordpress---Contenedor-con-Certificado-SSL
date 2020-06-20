@@ -1,0 +1,73 @@
+version: '3.1'
+services:
+    nginx-proxy:
+        image: nginx
+        depends_on: 
+            - wordpress1
+            - wordpress2
+        ports: 
+            - "80:80"
+            - "443:443"
+        volumes:
+            - /var/run/docker.sock:/tmp/docker.sock
+            - ./certificates:/etc/nginx/certificates
+            - ./html:/usr/share/nginx/html
+
+    wordpress1:
+        image: wordpress
+        container_name: wordpress_1
+        depends_on: 
+            - mysql
+        expose: 
+            - 80
+        env_file: 
+            - .env
+        environment: 
+            - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
+            - WORDPRESS_DB_USER=${DB_USER}
+            - WORDPRESS_DB_NAME=${DB_NAME}
+            - VIRTUAL_HOST=pulixe.local
+        volumes:
+            - ./html:/var/www/html
+            
+    wordpress2:
+        image: wordpress
+        container_name: wordpress_2
+        depends_on: 
+            - mysql
+        expose: 
+            - 80
+        env_file: 
+            - .env
+        environment: 
+            - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
+            - WORDPRESS_DB_USER=${DB_USER}
+            - WORDPRESS_DB_NAME=${DB_NAME}
+            - VIRTUAL_HOST=pulixe.local
+        volumes: 
+            - ./html:/var/www/html
+
+        
+    mysql:
+        image: mysql
+        command: --default-authentication-plugin=mysql_native_password
+        env_file: 
+            - .env
+        environment: 
+            - MYSQL_ROOT_PASSWORD=${ROOT_PASSWORD}
+            - MYSQL_DATABASE=${DATABASE}
+            - MYSQL_USER=${USER}
+            - MYSQL_PASSWORD=${PASSWORD}
+        volumes: 
+            - ./data:/var/lib/mysql
+
+    redis:
+        image: redis
+        depends_on: 
+            - wordpress1
+            - wordpress2
+        container_name: redis_cache
+        ports: 
+            - "6379:6379"
+        volumes: 
+            - ./redis_cache:/data
