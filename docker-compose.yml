@@ -1,73 +1,86 @@
-version: '3.1'
+version: "3.2"
+
 services:
-    nginx-proxy:
-        image: nginx
-        depends_on: 
-            - wordpress1
-            - wordpress2
+    db:
+        image: mysql:5.7
+        env_file: 
+            - .env
+        volumes:
+          - ./db_data:/var/lib/mysql
+        environment:
+          - MYSQL_ROOT_PASSWORD=$ROOT_PASSWORD
+          - MYSQL_DATABASE=$MY_DATABASE
+          - MYSQL_USER=$MY_USER
+          - MYSQL_PASSWORD=$MY_PASSWORD
+
+    wordpress1:
+        depends_on:
+            - db
+        image: wordpress:latest
+        container_name: wp1
+        env_file: 
+            - .env
+        expose:
+            - 80
+        environment:
+            - WORDPRESS_DB_HOST=$DB_HOST
+            - WORDPRESS_DB_USER=$DB_USER
+            - WORDPRESS_DB_PASSWORD=$DB_PASSWORD
+            - VIRTUAL_HOST=lesliejoan.com,www.lesliejoan.com
+            - LETSENCRYPT_HOST=lesliejoan.com,www.lesliejoan.com
+            - LETSENCRYPT_EMAIL=franelreal@gmail.com
+        volumes: 
+            - ./html:/var/www/html
+
+    wordpress2:
+        depends_on:
+            - db
+        image: wordpress:latest
+        container_name: wp2
+        env_file: 
+            - .env
+        expose:
+            - 80
+        environment:
+            - WORDPRESS_DB_HOST=$DB_HOST
+            - WORDPRESS_DB_USER=$DB_USER
+            - WORDPRESS_DB_PASSWORD=$DB_PASSWORD
+            - VIRTUAL_HOST=lesliejoan.com,www.lesliejoan.com
+            - LETSENCRYPT_HOST=lesliejoan.com,www.lesliejoan.com
+            - LETSENCRYPT_EMAIL=franelreal@gmail.com
+        volumes: 
+            - ./html:/var/www/html            
+
+    proxy:
+        image: jwilder/nginx-proxy
+        container_name: proxy
+        labels:
+            com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
         ports: 
             - "80:80"
             - "443:443"
-        volumes:
-            - /var/run/docker.sock:/tmp/docker.sock
-            - ./certificates:/etc/nginx/certificates
+        volumes: 
+            - certs:/etc/nginx/certs
+            - vhostd:/etc/nginx/vhost.d
             - ./html:/usr/share/nginx/html
+            - /var/run/docker.sock:/tmp/docker.sock
 
-    wordpress1:
-        image: wordpress
-        container_name: wordpress_1
-        depends_on: 
-            - mysql
-        expose: 
-            - 80
-        env_file: 
-            - .env
+    letsencrypt:
+        image: jrcs/letsencrypt-nginx-proxy-companion
+        container_name: letsencrypt
         environment: 
-            - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
-            - WORDPRESS_DB_USER=${DB_USER}
-            - WORDPRESS_DB_NAME=${DB_NAME}
-            - VIRTUAL_HOST=pulixe.local
+            - NGINX_PROXY_CONTAINER=proxy
         volumes:
-            - ./html:/var/www/html
-            
-    wordpress2:
-        image: wordpress
-        container_name: wordpress_2
-        depends_on: 
-            - mysql
-        expose: 
-            - 80
-        env_file: 
-            - .env
-        environment: 
-            - WORDPRESS_DB_PASSWORD=${DB_PASSWORD}
-            - WORDPRESS_DB_USER=${DB_USER}
-            - WORDPRESS_DB_NAME=${DB_NAME}
-            - VIRTUAL_HOST=pulixe.local
-        volumes: 
-            - ./html:/var/www/html
-
-        
-    mysql:
-        image: mysql
-        command: --default-authentication-plugin=mysql_native_password
-        env_file: 
-            - .env
-        environment: 
-            - MYSQL_ROOT_PASSWORD=${ROOT_PASSWORD}
-            - MYSQL_DATABASE=${DATABASE}
-            - MYSQL_USER=${USER}
-            - MYSQL_PASSWORD=${PASSWORD}
-        volumes: 
-            - ./data:/var/lib/mysql
-
+            - certs:/etc/nginx/certs
+            - vhostd:/etc/nginx/vhost.d
+            - ./html:/usr/share/nginx/html
+            - /var/run/docker.sock:/var/run/docker.sock:ro
     redis:
-        image: redis
-        depends_on: 
-            - wordpress1
-            - wordpress2
-        container_name: redis_cache
-        ports: 
-            - "6379:6379"
-        volumes: 
-            - ./redis_cache:/data
+      image: redis
+      container_name: redis_caches
+      ports:
+         - "6379:6379"
+ 
+volumes:
+    certs:
+    vhostd:
